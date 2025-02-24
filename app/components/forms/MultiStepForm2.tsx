@@ -1,6 +1,7 @@
 import { useState, ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import { formSteps } from '@/app/config/steps';
+import { useRouter } from "next/navigation";
 import PhoneInput, {
   getCountries,
   getCountryCallingCode,
@@ -17,7 +18,6 @@ interface FormErrors {
 
 const ANIMATION_DURATION = 800;
 
-// Validation utilities
 const validators = {
   email: (value: string): boolean => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -30,6 +30,7 @@ const validators = {
 };
 
 const DynamicFormContainer = () => {
+  const router = useRouter(); // Get the router from next/navigation
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({});
   const [errors, setErrors] = useState<FormErrors>({});
@@ -72,10 +73,10 @@ const DynamicFormContainer = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
     if (e.target.files?.length) {
       const file = e.target.files[0];
-      // setUploadedFiles((prev) => ({ ...prev, [fieldName]: file }));
-      setFormData(prev => ({
+      setUploadedFiles((prev) => ({ ...prev, [fieldName]: file }));
+      setFormData((prev) => ({
         ...prev,
-        [fieldName]: file
+        [fieldName]: file, // Store file object in formData
       }));
     }
   };
@@ -97,20 +98,6 @@ const DynamicFormContainer = () => {
     }));
     // setTimeout(() => handleNext(), 800);
   };
-
-  // const handleOptionSelectArray = (fieldName: string, value: string): void => {
-  //   console.log("fieldName", fieldName);
-
-  //   console.log("formData", formData);
-
-  //   let defaultArray = formData[fieldName] == undefined ? [value] : [...formData[fieldName], value];
-
-  //   setFormData(prev => ({
-  //     ...prev,
-  //     [fieldName]: defaultArray
-  //   }));
-  //   // setTimeout(() => handleNext(), 800);
-  // };
 
   const handleOptionSelectArray = (fieldName: string, value: string): void => {
     setFormData(prev => {
@@ -160,7 +147,6 @@ const DynamicFormContainer = () => {
   };
 
   const handleSubmit = async (): Promise<void> => {
-
     console.log("formData", formData);
     if (validateStep()) {
       try {
@@ -171,7 +157,10 @@ const DynamicFormContainer = () => {
         });
 
         if (response.ok) {
-          console.log('Form submitted successfully');
+          console.log("formData", formData);
+          router.push("/success"); // Redirect to success page
+        } else {
+          alert("Form submission failed.");
         }
       } catch (error) {
         console.error('Error submitting form:', error);
@@ -246,9 +235,6 @@ const DynamicFormContainer = () => {
                     field.type == "singleselect" ?
                       (
                         <fieldset className="mb-6">
-                          {/* <legend className="text-lg font-medium text-gray-900 mb-2">
-                            How soon do you want to begin tutoring? <span className="text-red-500">*</span>
-                          </legend> */}
                           {field.options && field.options.map((option) => (
                             <label key={option} className="flex items-center space-x-2 mb-2 cursor-pointer">
                               <input
@@ -323,9 +309,6 @@ const DynamicFormContainer = () => {
                         />
                       ) : field.type === "file" ? (
                         <div key={field.name} className="mb-4">
-                          {/* <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-2">
-                            {field.label}
-                          </label> */}
                           <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:border-blue-500 transition-all">
                             <input
                               type="file"

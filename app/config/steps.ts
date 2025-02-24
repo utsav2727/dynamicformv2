@@ -23,19 +23,19 @@ export const formSteps: FormStep[] = [
         name: "name",
         label: "Full Name",
         type: "text",
-        required: false
+        required: true
       },
       {
         name: "email",
         label: "Email Address",
         type: "email",
-        required: false
+        required: true
       },
       {
         name: "phone",
         label: "Phone Number",
         type: "tel",
-        required: false
+        required: true
       }
     ]
   },
@@ -225,7 +225,7 @@ export const formSteps: FormStep[] = [
         label: "Select the state(s) in which you hold a valid teaching certificate",
         type: "multiselect",
         required: true,
-        options:["Alabama" ]
+        options:["Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada", "New Hampshire", "New Jersey", "New Mexico", "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon", "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming"]
       },
       {
          name: "level certification",
@@ -316,7 +316,7 @@ export const formSteps: FormStep[] = [
       required: true
       },
       {
-      name: "image",
+      name: "Upload your image",
       label: "Upload Your Image",
       type: "file",
       required: true
