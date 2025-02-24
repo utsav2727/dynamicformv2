@@ -1,9 +1,14 @@
 import { useState, ChangeEvent } from 'react';
 import { motion } from 'framer-motion';
 import { formSteps } from '@/app/config/steps';
+import PhoneInput, {
+  getCountries,
+  getCountryCallingCode,
+} from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 
 interface FormData {
-  [key: string]: string | string[];
+  [key: string]: string | string[] | File;
 }
 
 interface FormErrors {
@@ -28,6 +33,7 @@ const DynamicFormContainer = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({});
   const [errors, setErrors] = useState<FormErrors>({});
+  const [showMore, setShowMore] = useState(false);
 
   const validateField = (name: string, value: string): string => {
     if (!value && formSteps[currentStep].fields.find(f => f.name === name)?.required) {
@@ -40,19 +46,40 @@ const DynamicFormContainer = () => {
       case 'email':
         return validators.email(value) ? '' : 'Please enter a valid email address';
       case 'phone':
-        return validators.phone(value) ? '' : 'Phone number must be exactly 10 digits';
+      // return validators.phone(value) ? '' : 'Phone number must be exactly 10 digits';
       default:
         return '';
     }
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>, fieldName: string): void => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, fieldName: string): void => {
     const value = e.target.value;
     setFormData(prev => ({
       ...prev,
       [fieldName]: value
     }));
   };
+
+  const handleInputChange2 = (fieldName: string, value: string): void => {
+    // const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: File | null }>({});
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    if (e.target.files?.length) {
+      const file = e.target.files[0];
+      // setUploadedFiles((prev) => ({ ...prev, [fieldName]: file }));
+      setFormData(prev => ({
+        ...prev,
+        [fieldName]: file
+      }));
+    }
+  };
+
 
   // Separate validation to only run on blur or form submission
   const handleInputBlur = (fieldName: string, value: string): void => {
@@ -71,19 +98,36 @@ const DynamicFormContainer = () => {
     // setTimeout(() => handleNext(), 800);
   };
 
+  // const handleOptionSelectArray = (fieldName: string, value: string): void => {
+  //   console.log("fieldName", fieldName);
+
+  //   console.log("formData", formData);
+
+  //   let defaultArray = formData[fieldName] == undefined ? [value] : [...formData[fieldName], value];
+
+  //   setFormData(prev => ({
+  //     ...prev,
+  //     [fieldName]: defaultArray
+  //   }));
+  //   // setTimeout(() => handleNext(), 800);
+  // };
+
   const handleOptionSelectArray = (fieldName: string, value: string): void => {
-    console.log("fieldName", fieldName);
+    setFormData(prev => {
+      const prevValues = Array.isArray(prev[fieldName]) ? prev[fieldName] : [];
 
-    console.log("formData", formData);
+      // Toggle the value in the array
+      const updatedValues = prevValues.includes(value)
+        ? prevValues.filter(item => item !== value) // Remove if already selected
+        : [...prevValues, value]; // Add if not selected
 
-    let defaultArray = formData[fieldName] == undefined ? [value] : [...formData[fieldName], value];
-
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: defaultArray
-    }));
-    // setTimeout(() => handleNext(), 800);
+      return {
+        ...prev,
+        [fieldName]: updatedValues
+      };
+    });
   };
+
 
   const validateStep = (): boolean => {
     const currentFields = formSteps[currentStep].fields;
@@ -135,9 +179,11 @@ const DynamicFormContainer = () => {
     }
   };
 
+  const MAX_VISIBLE_OPTIONS = 10;
+
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <motion.div className="w-full max-w-6xl flex flex-col md:flex-row gap-6 bg-white rounded-xl shadow-xl p-6">
+    <div className="min-h-screen  flex items-center justify-center p-4">
+      <motion.div className="w-full md:h-[90vh] md: max-w-6xl flex flex-col md:flex-row gap-6 bg-white rounded-xl shadow-xl p-6">
         {/* Progress Sidebar */}
         <div className="md:w-1/4 bg-blue-600 rounded-lg p-6 text-white">
           <div className="space-y-4">
@@ -158,7 +204,7 @@ const DynamicFormContainer = () => {
         </div>
 
         {/* Form Content */}
-        <div className="md:w-3/4 p-6">
+        <div className="md:w-3/4 p-6 max-h-[100%] overflow-auto">
           <motion.div
             key={currentStep}
             initial={{ x: 100, opacity: 0 }}
@@ -172,7 +218,7 @@ const DynamicFormContainer = () => {
 
             <div className="space-y-4">
               {formSteps[currentStep].fields.map(field => (
-                <div key={field.name} className="space-y-2">
+                <div key={field.name} className="relative">
                   <label className="block text-gray-700 font-medium">
                     {field.label}
                     {field.required && <span className="text-red-500 ml-1">*</span>}
@@ -207,7 +253,7 @@ const DynamicFormContainer = () => {
                             <label key={option} className="flex items-center space-x-2 mb-2 cursor-pointer">
                               <input
                                 type="radio"
-                                name="tutoringTime"
+                                name={field.name}
                                 value={option}
                                 checked={formData[field.name] === option}
                                 onChange={() => handleOptionSelect(field.name, option)}
@@ -217,53 +263,135 @@ const DynamicFormContainer = () => {
                             </label>
                           ))}
                         </fieldset>
-                      ) : field.type == "multiselect" ? (
+                      ) : field.type == "consent" ? (
                         <fieldset className="mb-6 border-t pt-4">
-                          {/* <legend className="text-lg font-medium text-gray-900 mb-2">
-                              What languages can you tutor? <span className="text-red-500">*</span>
-                            </legend> */}
-                          <p className="text-sm text-gray-500 mb-3">Only select languages you speak fluently</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {field.options && field.options.map((language) => (
+                          <div className="grid gap-2">
+                            {field.options?.slice(0, showMore ? field.options.length : MAX_VISIBLE_OPTIONS).map((language) => (
                               <label key={language} className="flex items-center space-x-2 cursor-pointer">
                                 <input
                                   type="checkbox"
-                                  checked={formData[field.name] == undefined ? false : formData[field.name].includes(language)}
-                                  onChange={() => { handleOptionSelectArray(field.name, language) }}
+                                  checked={(formData[field.name] as string[])?.includes(language) || false}
+                                  onChange={() => handleOptionSelectArray(field.name, language)}
                                   className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                                 />
                                 <span className="text-gray-800">{language}</span>
                               </label>
                             ))}
                           </div>
-                          {/* {languages.length > 10 && (
-                              <button
-                                onClick={() => setShowMore(!showMore)}
-                                className="mt-2 text-blue-600 hover:underline text-sm"
-                              >
-                                {showMore ? "Show Less" : `+${languages.length - 10} More Choices`}
-                              </button>
-                            )} */}
+
+                          {field.options && field.options.length > MAX_VISIBLE_OPTIONS && (
+                            <button
+                              onClick={() => setShowMore(!showMore)}
+                              className="mt-2 text-blue-600 hover:underline text-sm"
+                            >
+                              {showMore ? "Show Less" : `+ ${field.options.length - MAX_VISIBLE_OPTIONS} More Choices`}
+                            </button>
+                          )}
                         </fieldset>
+                      ) : field.type == "multiselect" ? (
+                        <fieldset className="mb-6 border-t pt-4">
+                          <div className="grid grid-cols-2 gap-2">
+                            {field.options?.slice(0, showMore ? field.options.length : MAX_VISIBLE_OPTIONS).map((language) => (
+                              <label key={language} className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={(formData[field.name] as string[])?.includes(language) || false}
+                                  onChange={() => handleOptionSelectArray(field.name, language)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-800">{language}</span>
+                              </label>
+                            ))}
+                          </div>
+
+                          {field.options && field.options.length > MAX_VISIBLE_OPTIONS && (
+                            <button
+                              onClick={() => setShowMore(!showMore)}
+                              className="mt-2 text-blue-600 hover:underline text-sm"
+                            >
+                              {showMore ? "Show Less" : `+ ${field.options.length - MAX_VISIBLE_OPTIONS} More Choices`}
+                            </button>
+                          )}
+                        </fieldset>
+                      ) : field.type === "tel" ? (
+                        <PhoneInput
+                          defaultCountry="US"
+                          value={formData[field.name] as string || ""}
+                          onChange={(value) => handleInputChange2(field.name, value || "")}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none 
+                                    focus:ring-2 focus:ring-blue-500 transition shadow-sm"
+                        />
+                      ) : field.type === "file" ? (
+                        <div key={field.name} className="mb-4">
+                          {/* <label htmlFor={field.name} className="block text-sm font-medium text-gray-700 mb-2">
+                            {field.label}
+                          </label> */}
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:border-blue-500 transition-all">
+                            <input
+                              type="file"
+                              id={field.name}
+                              name={field.name}
+                              required={field.required}
+                              onChange={(e) => handleFileChange(e, field.name)}
+                              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                              className="hidden"
+                            />
+                            <label htmlFor={field.name} className="flex flex-col items-center">
+                              <svg
+                                className="w-10 h-10 text-gray-400 mb-2"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V12m0 0V8m0 4h10m-5-8a4 4 0 00-4 4v1a4 4 0 004 4h5a4 4 0 004-4V7a4 4 0 00-4-4h-5z"></path>
+                              </svg>
+                              <span className="text-sm text-gray-600">Drag & drop or <span className="text-blue-500 font-medium">browse</span></span>
+                              <span className="text-xs text-gray-400">(PDF, DOC, PNG, JPG up to 5MB)</span>
+                            </label>
+                          </div>
+                          {uploadedFiles[field.name] && (
+                            <p className="text-sm text-gray-600 mt-2">
+                              Uploaded: <span className="font-medium text-gray-800">{uploadedFiles[field.name]?.name}</span>
+                            </p>
+                          )}
+                        </div>
+
 
                       ) :
                         (
                           (
-                            <input
-                              type={field.type}
-                              value={formData[field.name] || ''}
-                              onChange={(e) => handleInputChange(e, field.name)}
-                              onBlur={(e) => handleInputBlur(field.name, e.target.value)}
-                              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500
-                        outline-none transition-all"
-                              placeholder={`Enter your ${field.label.toLowerCase()}`}
-                            />
-                          ))
+                            field.type === "other" ? (
+                              <textarea
+                                value={formData[field.name] as string || ''}
+                                onChange={(e) => handleInputChange(e, field.name)}
+                                onBlur={(e) => handleInputBlur(field.name, e.target.value)}
+                                className={`w-[400px] h-[150px] px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${errors[field.name] ? 'border-red-500' : ''
+                                  }`}
+                                placeholder={`Enter your ${field.label.toLowerCase()}`}
+                              />
+                            ) : (
+                              <input
+                                type={field.type}
+                                value={formData[field.name] as string || ''}
+                                onChange={(e) => handleInputChange(e, field.name)}
+                                onBlur={(e) => handleInputBlur(field.name, e.target.value)}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${errors[field.name] ? 'border-red-500' : ''
+                                  }`}
+                                placeholder={`Enter your ${field.label.toLowerCase()}`}
+                              />
+                            )
+                          )
+
+                        )
                   )
                   }
 
                   {errors[field.name] && (
-                    <p className="text-red-500 text-sm">{errors[field.name]}</p>
+                    <span className="absolute top-5 right-0 -translate-y-full text-red-500 text-xs">
+                      {errors[field.name]}
+                    </span>
                   )}
                 </div>
               ))}
