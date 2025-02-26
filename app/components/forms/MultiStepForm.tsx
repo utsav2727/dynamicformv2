@@ -1,299 +1,418 @@
-"use client";
-import { useFormContext } from "@/app/context/FormContext";
-import { motion } from "framer-motion";
-import { useRouter } from "next/navigation"; // Import from next/navigation
-import { useEffect, useState } from "react";
-import PhoneInput, {
-	getCountries,
-	getCountryCallingCode,
-} from "react-phone-number-input";
+import { useState, ChangeEvent } from 'react';
+import { motion } from 'framer-motion';
+import { formSteps } from '@/app/config/steps';
+import { useRouter } from "next/navigation";
+import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
-// import "react-phone-number-input/style.css";
-import { CountrySelect, StateSelect } from "react-country-state-city";
-import "react-country-state-city/dist/react-country-state-city.css";
-// import { Country } from 'country-state-city';
 
-const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-const phoneRegex = /^\d{10}$/;
-
-export default function DynamicForm() {
-	const router = useRouter(); // Get the router from next/navigation
-	const {
-		stepIndex,
-		steps,
-		formData,
-		nextStep,
-		prevStep,
-		updateFormData,
-		submitForm,
-	} = useFormContext();
-	const step = steps[stepIndex];
-
-	const isLastStep = stepIndex === steps.length - 1;
-
-	const [selectedOptions, setSelectedOptions] = useState<{
-		[key: string]: string;
-	}>(
-		Object.keys(formData).reduce(
-			(acc, key) => {
-				acc[key] = formData[key];
-				return acc;
-			},
-			{} as { [key: string]: string },
-		),
-	);
-
-	const [emptyFields, setEmptyFields] = useState<Record<string, boolean>>({});
-
-	const [errors, setErrors] = useState<Record<string, string>>({});
-
-	useEffect(() => {
-		if (step.fields) {
-			const updatedSelectedOptions: { [key: string]: string } = {};
-			for (const field of step.fields) {
-				if (formData[field.name]) {
-					updatedSelectedOptions[field.name] = formData[field.name];
-				}
-			}
-			setSelectedOptions(updatedSelectedOptions);
-		}
-	}, [step.fields, formData]);
-
-	const handleOptionClick = (fieldName: string, value: string) => {
-		updateFormData(fieldName, value);
-		setSelectedOptions((prevState) => ({
-			...prevState,
-			[fieldName]: value,
-		}));
-
-		setTimeout(() => {
-			nextStep(value);
-		}, 800);
-	};
-
-	const handleInputChange = (
-		e: React.ChangeEvent<HTMLInputElement>,
-		fieldName: string,
-	) => {
-		const value = e.target.value;
-		updateFormData(fieldName, value);
-
-		if (fieldName === "email" && value && !emailRegex.test(value)) {
-			setErrors((prev) => ({
-				...prev,
-				email: "Please enter a valid email address.",
-			}));
-		} else if (fieldName === "phone" && value && !phoneRegex.test(value)) {
-			setErrors((prev) => ({
-				...prev,
-				phone: "Phone number must be exactly 10 digits.",
-			}));
-		} else {
-			setErrors((prev) => {
-				const { [fieldName]: _, ...rest } = prev;
-				return rest;
-			});
-		}
-
-		setEmptyFields((prev) => ({
-			...prev,
-			[fieldName]: value.trim() === "",
-		}));
-	};
-
-	const isNextDisabled = step.fields.some(
-		(field) => field.required && !formData[field.name]?.trim(),
-	);
-
-	const handleSubmit = async () => {
-		console.log("submitted Data", formData);
-
-		try {
-			const response = await fetch("/api/dummy-post", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(formData),
-			});
-			if (response.ok) {
-				router.push("/success"); // Redirect to success page
-			} else {
-				alert("Form submission failed.");
-			}
-		} catch (error) {
-			console.error("Error submitting form:", error);
-		}
-	};
-
-	return (
-		<motion.div
-			className="w-full p-4 h-full md:flex justify-between items-start space-x-6"
-			key={stepIndex}
-			initial={{ x: 100, opacity: 0 }}
-			animate={{ x: 0, opacity: 1 }}
-			exit={{ x: -100, opacity: 0 }}
-			transition={{ duration: 0.4, ease: "easeInOut" }}
-		>
-			<div className="w-full max-w-lg mx-auto p-6 bg-white rounded-lg shadow-xl">
-				<h2 className="text-3xl text-gray-800 mb-6">{step.title}</h2>
-				{step.fields.map((field) => (
-					<div key={field.name} className="mb-5">
-						<div className="block text-lg font-medium text-gray-700 mb-2">
-							{field.label}
-						</div>
-						{field.options ? (
-							<div className="grid grid-cols-1 gap-4">
-								{field.options.map((option: string) => (
-									<motion.button
-										key={option}
-										onClick={() => handleOptionClick(field.name, option)}
-										whileTap={{ scale: 0.95 }}
-										className={`w-full md:w-auto px-6 py-3 rounded-xl text-lg font-medium text-white
-                                        transition-all duration-300 bg-gradient-to-r from-blue-500 to-indigo-600 
-                                        hover:from-blue-600 hover:to-indigo-700 focus:ring-4 focus:ring-blue-300 
-                                        shadow-md hover:shadow-lg active:scale-95 ${selectedOptions[field.name] === option ? "bg-green-500" : ""}`}
-									>
-										{option}
-									</motion.button>
-								))}
-							</div>
-						) : field.type === "country" ? (
-							<div>
-								<CountrySelect
-									containerClassName="form-group"
-									inputClassName=""
-									defaultValue={formData[`${field.name}_obj`] as any}
-									onChange={(_country: any) => {
-										console.log("country", _country);
-										updateFormData(`${field.name}_obj`, _country);
-										updateFormData(field.name, _country?.name || "");
-										updateFormData(`${field.name}_id`, _country?.id || "");
-									}}
-									onTextChange={(_txt) => console.log(_txt)}
-									placeHolder="Select Country"
-								/>
-							</div>
-						) : field.type === "state" ? (
-							<div>
-								{formData.country_id == "233" ? (
-									<StateSelect
-										countryid={Number.parseInt(formData.country_id)}
-										containerClassName="form-group"
-										inputClassName=""
-										onChange={(_state: any) => {
-											console.log("_state", _state);
-											updateFormData(field.name, _state?.name || "");
-											updateFormData(`${field.name}_id`, _state?.id || "");
-										}}
-										onTextChange={(_txt) => console.log(_txt)}
-										// defaultValue={currentState}
-										placeHolder="Select State"
-									/>
-								) : (
-									<input
-										type={field.type}
-										value={formData[field.name] || ""}
-										onChange={(e) => handleInputChange(e, field.name)}
-										required={field.required}
-										className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none 
-                                    focus:ring-2 focus:ring-blue-500 transition shadow-sm"
-									/>
-								)}
-							</div>
-						) : field.type === "tel" ? (
-							<PhoneInput
-								defaultCountry="US"
-								value={formData[field.name] || ""}
-								onChange={(value) => updateFormData(field.name, value || "")}
-								className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none 
-                                    focus:ring-2 focus:ring-blue-500 transition shadow-sm"
-							/>
-						) : (
-							<input
-								type={field.type}
-								value={formData[field.name] || ""}
-								onChange={(e) => handleInputChange(e, field.name)}
-								required={field.required}
-								className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none 
-                                    focus:ring-2 focus:ring-blue-500 transition shadow-sm"
-							/>
-						)}
-						{step.type === "select" && selectedOptions[field.name] ? (
-							<div className="mt-4 text-green-500">
-								✅ {selectedOptions[field.name]} selected
-							</div>
-						) : (
-							<div className="mt-10 text-green-500" />
-						)}
-						{errors[field.name] ? (
-							<div className="text-red-500 text-sm min-h-[1.5rem]">
-								{errors[field.name]}
-							</div>
-						) : (
-							<div className="min-h-[1.5rem]" />
-						)}
-					</div>
-				))}
-				<div className="flex justify-between mt-6">
-					{stepIndex > 0 && (
-						<motion.button
-							onClick={prevStep}
-							whileTap={{ scale: 0.95 }}
-							className=" py-3 w-full md:w-auto text-lg font-medium text-gray-700 
-                             rounded-xl transition-all duration-300  
-                            focus:ring-4 focus:ring-gray-400  active:scale-95"
-						>
-							⬅ Back
-						</motion.button>
-					)}
-					{isLastStep ? (
-						<motion.button
-							onClick={handleSubmit} // Use the new handleSubmit function
-							whileTap={{ scale: 0.95 }}
-							className="px-6 py-3 w-full md:w-auto text-lg font-medium text-white 
-                            bg-green-600 rounded-xl transition-all duration-300 hover:bg-green-700 
-                            focus:ring-4 focus:ring-green-300 shadow-md hover:shadow-lg active:scale-95"
-						>
-							Submit
-						</motion.button>
-					) : (
-						!step.fields.some((field) => field.options) && (
-							<motion.button
-								disabled={errors.email !== undefined || isNextDisabled}
-								onClick={() => nextStep()}
-								whileTap={{ scale: 0.95 }}
-								className="px-6 py-3 w-full md:w-auto text-lg font-medium text-white 
-                                bg-blue-600 rounded-xl transition-all duration-300 hover:bg-blue-700 
-                                focus:ring-4 focus:ring-blue-300 shadow-md hover:shadow-lg active:scale-95"
-							>
-								Next ➡
-							</motion.button>
-						)
-					)}
-				</div>
-			</div>
-			<div className="w-full p-6 flex md:justify-end md:place-self-end items-center">
-				{step.promotionalContent && (
-					<div className="text-center md:text-end">
-						{step.promotionalContent.image && (
-							<div className="place-self-center  md:justify-self-end">
-								<img
-									src={step.promotionalContent.image}
-									alt={step.promotionalContent.title || "Promotional Image"}
-									className="mb-4 h-12 rounded-lg shadow-lg"
-								/>
-							</div>
-						)}
-						<h3 className="text-2xl font-semibold text-gray-800 mb-4">
-							{step.promotionalContent.title}
-						</h3>
-						<p className="text-lg text-gray-600">
-							{step.promotionalContent.message}
-						</p>
-					</div>
-				)}
-			</div>
-		</motion.div>
-	);
+interface FormData {
+  [key: string]: string | string[] | File;
 }
+
+interface FormErrors {
+  [key: string]: string;
+}
+
+const ANIMATION_DURATION = 800;
+
+const validators = {
+  email: (value: string): boolean => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(value);
+  },
+  phone: (value: string): boolean => {
+    const phoneRegex = /^\d{10}$/;
+    return phoneRegex.test(value);
+  }
+};
+
+const DynamicFormContainer = () => {
+  const router = useRouter(); // Get the router from next/navigation
+  const [currentStep, setCurrentStep] = useState(0);
+  const [formData, setFormData] = useState<FormData>({});
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [showMore, setShowMore] = useState(false);
+
+  const validateField = (name: string, value: string): string => {
+    if (!value && formSteps[currentStep].fields.find(f => f.name === name)?.required) {
+      return `${name} is required`;
+    }
+
+    if (!value) return '';
+
+    switch (name) {
+      case 'email':
+        return validators.email(value) ? '' : 'Please enter a valid email address';
+      case 'phone':
+      // return validators.phone(value) ? '' : 'Phone number must be exactly 10 digits';
+      default:
+        return '';
+    }
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, fieldName: string): void => {
+    const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleInputChange2 = (fieldName: string, value: string): void => {
+    // const value = e.target.value;
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: File | null }>({});
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
+    if (e.target.files?.length) {
+      const file = e.target.files[0];
+      setUploadedFiles((prev) => ({ ...prev, [fieldName]: file }));
+      setFormData((prev) => ({
+        ...prev,
+        [fieldName]: file, // Store file object in formData
+      }));
+    }
+  };
+
+
+  // Separate validation to only run on blur or form submission
+  const handleInputBlur = (fieldName: string, value: string): void => {
+    // const error = validateField(fieldName, value);
+    // setErrors(prev => ({
+    //   ...prev,
+    //   [fieldName]: error
+    // }));
+  };
+
+  const handleOptionSelect = (fieldName: string, value: string): void => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
+  const handleOptionSelectArray = (fieldName: string, value: string): void => {
+    setFormData(prev => {
+      const prevValues = Array.isArray(prev[fieldName]) ? prev[fieldName] : [];
+
+      // Toggle the value in the array
+      const updatedValues = prevValues.includes(value)
+        ? prevValues.filter(item => item !== value) // Remove if already selected
+        : [...prevValues, value]; // Add if not selected
+
+      return {
+        ...prev,
+        [fieldName]: updatedValues
+      };
+    });
+  };
+
+
+  const validateStep = (): boolean => {
+    const currentFields = formSteps[currentStep].fields;
+    const newErrors: FormErrors = {};
+    let isValid = true;
+
+    currentFields.forEach(field => {
+      const value = formData[field.name] || '';
+      if (typeof value === "string") {
+        const error = validateField(field.name, value);
+        if (error) {
+          newErrors[field.name] = error;
+          isValid = false;
+        }
+      }
+    });
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  const handleNext = (): void => {
+    if (validateStep()) {
+      setCurrentStep(prev => Math.min(prev + 1, formSteps.length - 1));
+    }
+  };
+
+  const handlePrev = (): void => {
+    setCurrentStep(prev => Math.max(prev - 1, 0));
+  };
+
+  const handleSubmit = async (): Promise<void> => {
+    console.log("formData", formData);
+    if (validateStep()) {
+      try {
+        const response = await fetch('/api/dummy-post', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+          console.log("formData", formData);
+          router.push("/success"); // Redirect to success page
+        } else {
+          alert("Form submission failed.");
+        }
+      } catch (error) {
+        console.error('Error submitting form:', error);
+      }
+    }
+  };
+
+  const MAX_VISIBLE_OPTIONS = 10;
+
+  return (
+    <div className="min-h-screen  flex items-center justify-center p-4">
+      <motion.div className="w-full md:h-[90vh] md: max-w-6xl flex flex-col md:flex-row gap-6 bg-white rounded-xl shadow-xl p-6">
+        {/* Progress Sidebar */}
+        <div className="md:w-1/4 bg-blue-600 rounded-lg p-6 text-white">
+          <div className="space-y-4">
+            {formSteps.map((step, index) => (
+              <div
+                key={step.id}
+                className={`flex items-center gap-3 p-2 rounded-md ${currentStep === index ? 'bg-white text-blue-600' : ''
+                  }`}
+              >
+                <span className={`h-8 w-8 flex items-center justify-center rounded-full border-2 
+                  ${currentStep === index ? 'border-blue-600 bg-blue-600 text-white' : 'border-white'}`}>
+                  {index + 1}
+                </span>
+                <span className="text-sm font-medium">{step.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Form Content */}
+        <div className="md:w-3/4 p-6 max-h-[100%] overflow-auto">
+          <motion.div
+            key={currentStep}
+            initial={{ x: 100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -100, opacity: 0 }}
+            className="space-y-6"
+          >
+            <h2 className="text-3xl font-bold text-gray-800">{formSteps[currentStep].title}</h2>
+
+            <h4>{formSteps[currentStep].description}</h4>
+
+            <div className="space-y-4">
+              {formSteps[currentStep].fields.map(field => (
+                <div key={field.name} className="relative">
+                  <label className="block text-gray-700 font-medium">
+                    {field.label}
+                    {field.required && <span className="text-red-500 ml-1">*</span>}
+                  </label>
+
+                  {field.options && field.type == "select" ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {field.options.map(option => (
+                        <motion.button
+                          key={option}
+                          onClick={() => handleOptionSelect(field.name, option)}
+                          className={`px-4 py-2 rounded-lg text-white font-medium
+                            ${formData[field.name] === option
+                              ? 'bg-green-500'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                            } transition-all`}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          {option}
+                        </motion.button>
+                      ))}
+                    </div>
+                  ) : (
+                    field.type == "singleselect" ?
+                      (
+                        <fieldset className="mb-6">
+                          {field.options && field.options.map((option) => (
+                            <label key={option} className="flex items-center space-x-2 mb-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={field.name}
+                                value={option}
+                                checked={formData[field.name] === option}
+                                onChange={() => handleOptionSelect(field.name, option)}
+                                className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                              />
+                              <span className="text-gray-800">{option}</span>
+                            </label>
+                          ))}
+                        </fieldset>
+                      ) : field.type == "consent" ? (
+                        <fieldset className="mb-6 border-t pt-4">
+                          <div className="grid gap-2">
+                            {field.options?.slice(0, showMore ? field.options.length : MAX_VISIBLE_OPTIONS).map((language) => (
+                              <label key={language} className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={(formData[field.name] as string[])?.includes(language) || false}
+                                  onChange={() => handleOptionSelectArray(field.name, language)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-800">{language}</span>
+                              </label>
+                            ))}
+                          </div>
+
+                          {field.options && field.options.length > MAX_VISIBLE_OPTIONS && (
+                            <button
+                              onClick={() => setShowMore(!showMore)}
+                              className="mt-2 text-blue-600 hover:underline text-sm"
+                            >
+                              {showMore ? "Show Less" : `+ ${field.options.length - MAX_VISIBLE_OPTIONS} More Choices`}
+                            </button>
+                          )}
+                        </fieldset>
+                      ) : field.type == "multiselect" ? (
+                        <fieldset className="mb-6 border-t pt-4">
+                          <div className="grid grid-cols-2 gap-2">
+                            {field.options?.slice(0, showMore ? field.options.length : MAX_VISIBLE_OPTIONS).map((language) => (
+                              <label key={language} className="flex items-center space-x-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={(formData[field.name] as string[])?.includes(language) || false}
+                                  onChange={() => handleOptionSelectArray(field.name, language)}
+                                  className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-800">{language}</span>
+                              </label>
+                            ))}
+                          </div>
+
+                          {field.options && field.options.length > MAX_VISIBLE_OPTIONS && (
+                            <button
+                              onClick={() => setShowMore(!showMore)}
+                              className="mt-2 text-blue-600 hover:underline text-sm"
+                            >
+                              {showMore ? "Show Less" : `+ ${field.options.length - MAX_VISIBLE_OPTIONS} More Choices`}
+                            </button>
+                          )}
+                        </fieldset>
+                      ) : field.type === "tel" ? (
+                        <PhoneInput
+                          defaultCountry="US"
+                          value={formData[field.name] as string || ""}
+                          onChange={(value) => handleInputChange2(field.name, value || "")}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none 
+                                    focus:ring-2 focus:ring-blue-500 transition shadow-sm"
+                        />
+                      ) : field.type === "file" ? (
+                        <div key={field.name} className="mb-4">
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center text-gray-500 cursor-pointer hover:border-blue-500 transition-all">
+                            <input
+                              type="file"
+                              id={field.name}
+                              name={field.name}
+                              required={field.required}
+                              onChange={(e) => handleFileChange(e, field.name)}
+                              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                              className="hidden"
+                            />
+                            <label htmlFor={field.name} className="flex flex-col items-center">
+                              <svg
+                                className="w-10 h-10 text-gray-400 mb-2"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V12m0 0V8m0 4h10m-5-8a4 4 0 00-4 4v1a4 4 0 004 4h5a4 4 0 004-4V7a4 4 0 00-4-4h-5z"></path>
+                              </svg>
+                              <span className="text-sm text-gray-600">Drag & drop or <span className="text-blue-500 font-medium">browse</span></span>
+                              <span className="text-xs text-gray-400">(PDF, DOC, PNG, JPG up to 5MB)</span>
+                            </label>
+                          </div>
+                          {uploadedFiles[field.name] && (
+                            <p className="text-sm text-gray-600 mt-2">
+                              Uploaded: <span className="font-medium text-gray-800">{uploadedFiles[field.name]?.name}</span>
+                            </p>
+                          )}
+                        </div>
+
+
+                      ) :
+                        (
+                          (
+                            field.type === "other" ? (
+                              <textarea
+                                value={formData[field.name] as string || ''}
+                                onChange={(e) => handleInputChange(e, field.name)}
+                                onBlur={(e) => handleInputBlur(field.name, e.target.value)}
+                                className={`w-[400px] h-[150px] px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${errors[field.name] ? 'border-red-500' : ''
+                                  }`}
+                                placeholder={`Enter your ${field.label.toLowerCase()}`}
+                              />
+                            ) : (
+                              <input
+                                type={field.type}
+                                value={formData[field.name] as string || ''}
+                                onChange={(e) => handleInputChange(e, field.name)}
+                                onBlur={(e) => handleInputBlur(field.name, e.target.value)}
+                                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all ${errors[field.name] ? 'border-red-500' : ''
+                                  }`}
+                                placeholder={`Enter your ${field.label.toLowerCase()}`}
+                              />
+                            )
+                          )
+
+                        )
+                  )
+                  }
+
+                  {errors[field.name] && (
+                    <span className="absolute top-5 right-0 -translate-y-full text-red-500 text-xs">
+                      {errors[field.name]}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between pt-6">
+              {currentStep > 0 && (
+                <motion.button
+                  onClick={handlePrev}
+                  className="px-6 py-2 text-gray-600 font-medium rounded-lg
+                    hover:bg-gray-100 transition-all"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  ← Back
+                </motion.button>
+              )}
+
+              {currentStep === formSteps.length - 1 ? (
+                <motion.button
+                  onClick={handleSubmit}
+                  className="px-6 py-2 bg-green-500 text-white font-medium rounded-lg
+                    hover:bg-green-600 transition-all"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Submit
+                </motion.button>
+              ) : (
+                <motion.button
+                  onClick={handleNext}
+                  className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg
+                    hover:bg-blue-700 transition-all"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Next →
+                </motion.button>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+export default DynamicFormContainer;
